@@ -55,7 +55,10 @@ model = nn.Sequential(
     nn.Flatten(),
     nn.Linear(128 * 128 * 3, 128),
     nn.ReLU(),
-    nn.Linear(128, 3)  # 输出3个类别
+    nn.Linear(128, 64),     # 新加的层1
+    nn.ReLU(),              # 新加的层2
+    nn.Linear(64, 3)
+
 )
 
 # 损失函数和优化器
@@ -63,7 +66,7 @@ criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
 # 训练循环
-for epoch in range(3000):
+for epoch in range(300):
     for images, labels in dataloader:
         outputs = model(images)
         loss = criterion(outputs, labels)
@@ -127,14 +130,17 @@ class_names = ['cat', 'dog', 'donkey']  # 更新类别名称
 # 注意要使用与训练相同的transform（这里补充了Normalize会更规范）
 transform = transforms.Compose([
     transforms.Resize((128, 128)),
+    transforms.RandomHorizontalFlip(),
+    transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3),
+    transforms.RandomAffine(degrees=15, translate=(0.1, 0.1)),
     transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406],  # ImageNet标准归一化
+    transforms.Normalize(mean=[0.485, 0.456, 0.406],
                          std=[0.229, 0.224, 0.225])
 ])
 
 # 进行预测
 predict_image(
-    image_path='dataset/images/test6.jpg',  # 替换为你的图片路径
+    image_path='dataset/images/test4.jpg',  # 替换为你的图片路径
     model=model,
     transform=transform,
     class_names=class_names
