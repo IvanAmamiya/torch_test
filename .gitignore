@@ -1,0 +1,4 @@
+# Ignore large data files
+data/cifar-10-python.tar.gz
+data/cifar-10-batches-py/
+data/FashionMNIST/raw/
