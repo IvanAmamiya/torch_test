@@ -1,21 +1,22 @@
 #!/bin/bash
 
-# Download CIFAR-10 dataset
-if [ ! -f "data/cifar-10-python.tar.gz" ]; then
-  echo "Downloading CIFAR-10 dataset..."
-  wget -P data/ https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz
+# Check if FashionMNIST dataset is already extracted
+if [ -f "data/FashionMNIST/raw/train-images-idx3-ubyte" ]; then
+  echo "FashionMNIST dataset already extracted. Skipping download."
 else
-  echo "CIFAR-10 dataset already exists."
-fi
-
-# Download FashionMNIST dataset
-if [ ! -d "data/FashionMNIST/raw" ]; then
-  echo "Downloading FashionMNIST dataset..."
+  echo "Downloading and extracting FashionMNIST dataset..."
   mkdir -p data/FashionMNIST/raw
   wget -P data/FashionMNIST/raw/ http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz
   wget -P data/FashionMNIST/raw/ http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz
   wget -P data/FashionMNIST/raw/ http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz
   wget -P data/FashionMNIST/raw/ http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz
-else
-  echo "FashionMNIST dataset already exists."
+
+  # Extract files
+  gunzip data/FashionMNIST/raw/*.gz
+fi
+
+# Cleanup temporary files
+if [ -f "data/FashionMNIST/raw/*.gz" ]; then
+  echo "Cleaning up temporary files..."
+  rm data/FashionMNIST/raw/*.gz
 fi
