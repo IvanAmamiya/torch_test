@@ -1,147 +1,122 @@
 import os
 import pandas as pd
 from PIL import Image
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
-from torch.utils.data import DataLoader
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
 import numpy as np
+import csv
+from torch.cuda.amp import autocast, GradScaler
 
+# 自动使用 GPU 或 CPU
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
+
+# 自定义数据集类
 class CustomImageDataset(Dataset):
-    def __init__(self, annotations_file, img_dir, transform=None, target_transform=None):
+    def __init__(self, annotations_file, img_dir, transform=None):
         self.img_labels = pd.read_csv(annotations_file)
         self.img_dir = img_dir
         self.transform = transform
-        self.target_transform = target_transform
-
-        # Adjust labels once here to avoid doing it in each call to __getitem__
-        self.img_labels.iloc[:, 1] = self.img_labels.iloc[:, 1].apply(lambda x: x - 1 if x > 0 else x)
 
     def __len__(self):
         return len(self.img_labels)
 
     def __getitem__(self, idx):
-        img_path = os.path.join(self.img_dir, self.img_labels.iloc[idx, 0])  # Fixed img_path
-        image = Image.open(img_path).convert("RGB")
-        label = self.img_labels.iloc[idx, 1]
-        
+        img_path = os.path.join(self.img_dir, self.img_labels.iloc[idx, 0])
+        image = Image.open(img_path).convert("L")
+        label = int(self.img_labels.iloc[idx, 1])  # 显式转 int 防止类型异常
         if self.transform:
             image = self.transform(image)
-        if self.target_transform:
-            label = self.target_transform(label)
-        return image, label
+        return image, label  # ✅ 正确返回 image 和 int label
 
 
-# 数据预处理
+# 图像增强与预处理
 transform = transforms.Compose([
+    transforms.RandomHorizontalFlip(),
     transforms.Resize((128, 128)),
     transforms.ToTensor(),
 ])
 
-# 数据集加载
-dataset = CustomImageDataset(
-    annotations_file='dataset/annotations.csv',
-    img_dir='dataset/images',
-    transform=transform
-)
 
-dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
+# 定义模型
+class SimpleModel(nn.Module):
+    def __init__(self):
+        super(SimpleModel, self).__init__()
+        self.flatten = nn.Flatten()
+        self.fc1 = nn.Linear(128 * 128, 128)
+        self.fc2 = nn.Linear(128, 5)  # 5 个类别
 
-# 模型定义
-model = nn.Sequential(
-    nn.Flatten(),
-    nn.Linear(128 * 128 * 3, 128),
-    nn.ReLU(),
-    nn.Linear(128, 64),     # 新加的层1
-    nn.ReLU(),              # 新加的层2
-    nn.Linear(64, 3)
+    def forward(self, x):
+        x = self.flatten(x)
+        x = torch.relu(self.fc1(x))
+        x = self.fc2(x)
+        return x
 
-)
-
-# 损失函数和优化器
+# 初始化模型和优化器
+model = SimpleModel().to(device)
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.0001)
+optimizer = optim.Adam(model.parameters(), lr=0.1)
+scaler = GradScaler()
 
-# 训练循环
-for epoch in range(300):
-    for images, labels in dataloader:
-        outputs = model(images)
-        loss = criterion(outputs, labels)
+# 训练模型
+for epoch in range(10):
+    model.train()
+    for images, labels in train_loader:
+        images = images.to(device)
+        labels = (labels - 1).to(device)  # ⚠️ CrossEntropyLoss 需要标签从 0 开始
 
         optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-    print(f'Epoch {epoch+1}, Loss: {loss.item()}')
+        with autocast():
+            outputs = model(images)
+            loss = criterion(outputs, labels)
 
-# 模型评估模式
-model.eval()
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
 
-def show_image(img, label):
-    npimg = img.numpy()
-    plt.imshow(np.transpose(npimg, (1, 2, 0)))
-    plt.title(f'Label: {label}')
-    plt.show()
+    print(f"Epoch {epoch+1}, Loss: {loss.item():.4f}")
 
-# 预测单张图片
-def predict_image(image_path, model, transform, class_names=None):
-    """
-    预测单张图片的类别
-    参数：
-        image_path: 图片路径
-        model: 训练好的模型
-        transform: 数据预处理流程
-        class_names: 可选的类别名称列表
-    """
-    # 加载图片
-    image = Image.open(image_path).convert("RGB")
-    
-    # 应用预处理
-    transformed_image = transform(image)
-    
-    # 添加batch维度 (1, C, H, W)
-    batch_image = transformed_image.unsqueeze(0)
-    
-    # 推理
+    # 验证
+    model.eval()
+    correct = 0
+    total = 0
     with torch.no_grad():
-        output = model(batch_image)
+        for images, labels in test_loader:
+            images = images.to(device)
+            labels = labels.to(device)
+            outputs = model(images)
+            _, predicted = torch.max(outputs, 1)
+            predicted += 1  # ⚠️ 模型预测为 0~4，对应标签 1~5
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    acc = correct / total
+    print(f'Validation Accuracy after Epoch {epoch+1}: {acc:.4f}')
+
+# 预测函数
+def predict_image(image_path, model, transform, class_names):
+    image = Image.open(image_path).convert("L")
+    transformed_image = transform(image).unsqueeze(0).to(device)
+
+    model.eval()
+    with torch.no_grad():
+        output = model(transformed_image)
         probabilities = torch.nn.functional.softmax(output[0], dim=0)
-        predicted_class = torch.argmax(probabilities).item()
+        predicted_class = torch.argmax(probabilities).item() + 1
         confidence = torch.max(probabilities).item()
-    
-    # 可视化
-    plt.imshow(image)
-    print(predicted_class)
-    title = f'Predicted: {predicted_class}'
-    if class_names:
-        title += f' ({class_names[predicted_class]})'
-    title += f'\nConfidence: {confidence:.2f}'
-    plt.title(title)
+
+    plt.imshow(np.array(image), cmap="gray")
+    plt.title(f'Predicted: {predicted_class} ({class_names[predicted_class-1]})\nConfidence: {confidence:.2f}')
     plt.axis('off')
     plt.show()
-    
+
     return predicted_class, confidence
 
-# 使用示例（需要根据实际情况调整）：
-class_names = ['cat', 'dog', 'donkey']  # 更新类别名称
+# 类别名（显示用）
+class_names = ['cat', 'dog', 'donkey', 'horse', 'zebra']
 
-# 注意要使用与训练相同的transform（这里补充了Normalize会更规范）
-transform = transforms.Compose([
-    transforms.Resize((128, 128)),
-    transforms.RandomHorizontalFlip(),
-    transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3),
-    transforms.RandomAffine(degrees=15, translate=(0.1, 0.1)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                         std=[0.229, 0.224, 0.225])
-])
-
-# 进行预测
-predict_image(
-    image_path='dataset/images/test4.jpg',  # 替换为你的图片路径
-    model=model,
-    transform=transform,
-    class_names=class_names
-)
+# 示例预测
+predict_image('./dataset/images/test4.jpg', model, transform, class_names)
