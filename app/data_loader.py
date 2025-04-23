@@ -3,7 +3,7 @@
 
 import os
 import torchvision
-from torchvision import transforms
+from torchvision import transforms, datasets
 from torch.utils.data import DataLoader, Dataset
 from torchvision.datasets import FashionMNIST
 from PIL import Image
@@ -12,6 +12,7 @@ import pandas as pd
 class CIFAR10Loader:
     def __init__(self, batch_size):
         transform = transforms.Compose([
+            transforms.Resize((32, 32)),  # 保证输入为32x32
             transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
         ])
@@ -23,24 +24,33 @@ class CIFAR10Loader:
     def get_loaders(self):
         return self.train_loader, self.test_loader
 
-class FashionMNISTLoader:
-    def __init__(self, batch_size, data_dir='./data/FashionMNIST'):
-        if not os.path.exists(data_dir):
-            print(f"Data directory {data_dir} not found. Downloading dataset...")
-            data_dir = './data/FashionMNIST'  # Default directory for torchvision
+def get_cifar10_train_loader(batch_size=64):
+    """
+    Returns a DataLoader for the CIFAR-10 training dataset with reduced data augmentation.
+    """
+    transform = transforms.Compose([
+        transforms.Resize((32, 32)),  # 统一为32x32
+        transforms.RandomHorizontalFlip(),
+        transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.05),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+    ])
+    train_dataset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    return train_loader
 
-        transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.5,), (0.5,))
-        ])
-
-        self.train_dataset = FashionMNIST(root=data_dir, train=True, download=True, transform=transform)
-        self.test_dataset = FashionMNIST(root=data_dir, train=False, download=True, transform=transform)
-        self.train_loader = DataLoader(self.train_dataset, batch_size=batch_size, shuffle=True)
-        self.test_loader = DataLoader(self.test_dataset, batch_size=batch_size, shuffle=False)
-
-    def get_loaders(self):
-        return self.train_loader, self.test_loader
+def get_cifar10_test_loader(batch_size=64):
+    """
+    Returns a DataLoader for the CIFAR-10 test dataset with resizing.
+    """
+    transform = transforms.Compose([
+        transforms.Resize((32, 32)),  # 统一为32x32
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+    ])
+    test_dataset = datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+    return test_loader
 
 class CustomImageDataset(Dataset):
     def __init__(self, annotations_file, img_dir, transform=None):
