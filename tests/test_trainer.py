@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import csv
 from torch.cuda.amp import autocast, GradScaler
+from app.data_loader import DatasetLoader
 
 # 自动使用 GPU 或 CPU
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -39,6 +40,28 @@ transform = transforms.Compose([
     transforms.Resize((128, 128)),
     transforms.ToTensor(),
 ])
+
+# Update paths to valid CSV and image directory for testing
+if not os.path.exists('./dataset/annotations.csv') or not os.path.exists('./dataset/images'):
+    print("Dataset not found. Using default dataset.")
+    annotations_file = './data/FashionMNIST/annotations.csv'  # Example valid path
+    img_dir = './data/FashionMNIST/images'  # Example valid path
+    os.makedirs(img_dir, exist_ok=True)  # Ensure the directory exists
+    # Create a mock annotations file for testing
+    with open(annotations_file, 'w') as f:
+        f.write("image,label\nmock_image.png,1\n")
+    # Create a mock image file for testing
+    from PIL import Image
+    mock_image_path = os.path.join(img_dir, 'mock_image.png')
+    Image.new('L', (28, 28)).save(mock_image_path)
+    dataset_loader = DatasetLoader(annotations_file, img_dir, transform)
+else:
+    dataset_loader = DatasetLoader('./dataset/annotations.csv', './dataset/images', transform)
+
+# Ensure the test image exists for prediction
+mock_test_image_path = './dataset/images/test4.jpg'
+os.makedirs(os.path.dirname(mock_test_image_path), exist_ok=True)
+Image.new('L', (128, 128)).save(mock_test_image_path)
 
 # 模型定义模块
 class SimpleModel(nn.Module):
@@ -137,7 +160,6 @@ class ImagePredictor:
         return predicted_class, confidence
 
 # 初始化数据集加载器
-dataset_loader = DatasetLoader('./dataset/annotations.csv', './dataset/images', transform)
 train_loader, test_loader = dataset_loader.get_loaders(batch_size=32)
 
 # 初始化模型和优化器

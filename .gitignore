@@ -1,9 +1,28 @@
-# Ignore large data files
-data/cifar-10-python.tar.gz
-data/cifar-10-batches-py/
-data/FashionMNIST/raw/
+# Ignore virtual environments
+venv/
+.env/
 
-# Ignore temporary files and tools
-*.jar
+# Ignore logs
+*.log
+
+# Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Ignore Python bytecode
 *.pyc
 __pycache__/
+
+# Ignore data and temporary files
+data/FashionMNIST/raw/
+data/cifar-10-batches-py/
+data/cifar-10-python.tar.gz
+
+# Ignore pre-trained datasets and raw data
+data/FashionMNIST/
+data/raw/
+
+# Ignore test cache
+tests/__pycache__/
+
+# Ignore dataset images
+dataset/images/

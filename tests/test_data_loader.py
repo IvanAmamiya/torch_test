@@ -1,8 +1,11 @@
 import pytest
-from app.data_loader import load_data
+from app.data_loader import FashionMNISTLoader
 
-def test_load_data():
-    # Add a mock test for load_data function
-    data = load_data()
-    assert data is not None, "Data should not be None"
-    assert isinstance(data, dict), "Data should be a dictionary"
+def test_fashion_mnist_loader():
+    loader = FashionMNISTLoader(batch_size=32)
+    train_loader, test_loader = loader.get_loaders()
+
+    assert train_loader is not None, "Train loader should not be None"
+    assert test_loader is not None, "Test loader should not be None"
+    assert len(train_loader.dataset) > 0, "Train dataset should not be empty"
+    assert len(test_loader.dataset) > 0, "Test dataset should not be empty"

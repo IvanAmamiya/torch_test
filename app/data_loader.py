@@ -1,6 +1,14 @@
 # 数据加载模块
 # This file has been moved to app/utils/transforms.py
 
+import os
+import torchvision
+from torchvision import transforms
+from torch.utils.data import DataLoader, Dataset
+from torchvision.datasets import FashionMNIST
+from PIL import Image
+import pandas as pd
+
 class CIFAR10Loader:
     def __init__(self, batch_size):
         transform = transforms.Compose([
@@ -14,3 +22,48 @@ class CIFAR10Loader:
 
     def get_loaders(self):
         return self.train_loader, self.test_loader
+
+class FashionMNISTLoader:
+    def __init__(self, batch_size, data_dir='./data/FashionMNIST'):
+        if not os.path.exists(data_dir):
+            print(f"Data directory {data_dir} not found. Downloading dataset...")
+            data_dir = './data/FashionMNIST'  # Default directory for torchvision
+
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.5,), (0.5,))
+        ])
+
+        self.train_dataset = FashionMNIST(root=data_dir, train=True, download=True, transform=transform)
+        self.test_dataset = FashionMNIST(root=data_dir, train=False, download=True, transform=transform)
+        self.train_loader = DataLoader(self.train_dataset, batch_size=batch_size, shuffle=True)
+        self.test_loader = DataLoader(self.test_dataset, batch_size=batch_size, shuffle=False)
+
+    def get_loaders(self):
+        return self.train_loader, self.test_loader
+
+class CustomImageDataset(Dataset):
+    def __init__(self, annotations_file, img_dir, transform=None):
+        self.img_labels = pd.read_csv(annotations_file)
+        self.img_dir = img_dir
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.img_labels)
+
+    def __getitem__(self, idx):
+        img_path = os.path.join(self.img_dir, self.img_labels.iloc[idx, 0])
+        image = Image.open(img_path).convert("L")
+        label = int(self.img_labels.iloc[idx, 1])
+        if self.transform:
+            image = self.transform(image)
+        return image, label
+
+class DatasetLoader:
+    def __init__(self, annotations_file, img_dir, transform):
+        self.dataset = CustomImageDataset(annotations_file, img_dir, transform)
+
+    def get_loaders(self, batch_size, shuffle=True):
+        train_loader = DataLoader(self.dataset, batch_size=batch_size, shuffle=shuffle)
+        test_loader = DataLoader(self.dataset, batch_size=batch_size, shuffle=False)
+        return train_loader, test_loader
