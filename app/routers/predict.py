@@ -144,7 +144,7 @@ async def train_model():
             trainer = Trainer(model, train_loader, test_loader, device, criterion, optimizer)
 
             # Train the model
-            epochs = 3000  # Updated to 5 epochs
+            epochs = 500  # Updated to 5 epochs
             for epoch in range(epochs):
                 training_progress.append(f"Epoch {epoch + 1}/{epochs} started")
                 yield f"data: {training_progress[-1]}\n\n"
