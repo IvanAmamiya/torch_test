@@ -2,6 +2,7 @@
 
 # 训练模块 / トレーニングモジュール / Training Module
 import torch
+from sklearn.metrics import recall_score
 class Trainer:
     def __init__(self, model, train_loader, test_loader, device, criterion, optimizer):
         """
@@ -31,10 +32,7 @@ class Trainer:
             raise ValueError(f"输入图片的形状 {images.shape[1:]} 与模型期望的形状 {self.input_shape} 不匹配！")
 
     def train(self, epochs):
-        """
-        训练模型 / モデルをトレーニング / Train the model
-        :param epochs: 训练的轮数 / トレーニングのエポック数 / Number of training epochs
-        """
+        best_acc = 0.0
         for epoch in range(epochs):
             self.model.train()
             running_loss = 0.0
@@ -61,6 +59,13 @@ class Trainer:
             avg_loss = running_loss / len(self.train_loader)
             print(f"Epoch {epoch + 1}/{epochs}, Loss: {avg_loss:.4f}")
 
+            # 每个epoch结束后在测试集上评估准确率
+            acc = self.calculate_accuracy()
+            if acc > best_acc:
+                best_acc = acc
+                print(f"New best accuracy: {best_acc:.4f}, saving model...")
+                torch.save(self.model.state_dict(), "model.pth")
+
     def test(self, test_loader=None):
         """
         测试模型，支持自定义测试集。
@@ -69,6 +74,8 @@ class Trainer:
         self.model.eval()
         correct = 0
         total = 0
+        all_labels = []
+        all_preds = []
         loader = test_loader if test_loader is not None else self.test_loader
 
         with torch.no_grad():
@@ -80,12 +87,16 @@ class Trainer:
                     _, predicted = torch.max(outputs, 1)
                     total += labels.size(0)
                     correct += (predicted == labels).sum().item()
+                    all_labels.extend(labels.cpu().numpy())
+                    all_preds.extend(predicted.cpu().numpy())
                 except Exception as e:
                     print(f"测试过程中发生错误: {e}")
 
         accuracy = correct / total if total > 0 else 0
+        recall = recall_score(all_labels, all_preds, average='macro')
         print(f"Test Accuracy: {accuracy:.4f}")
-        return accuracy
+        print(f"Test Recall (macro): {recall:.4f}")
+        return accuracy, recall
 
     def calculate_accuracy(self):
         """
