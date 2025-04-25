@@ -12,7 +12,11 @@ import pandas as pd
 class CIFAR10Loader:
     def __init__(self, batch_size):
         transform = transforms.Compose([
-            transforms.Resize((32, 32)),  # 保证输入为32x32
+            transforms.Resize((32, 32)),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomCrop(32, padding=4),
+            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+            transforms.RandomRotation(15),
             transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
         ])
