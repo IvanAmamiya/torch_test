@@ -24,34 +24,6 @@ class CIFAR10Loader:
     def get_loaders(self):
         return self.train_loader, self.test_loader
 
-def get_cifar10_train_loader(batch_size=64):
-    """
-    Returns a DataLoader for the CIFAR-10 training dataset with reduced data augmentation.
-    """
-    transform = transforms.Compose([
-        transforms.Resize((32, 32)),  # 统一为32x32
-        transforms.RandomHorizontalFlip(),
-        transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.05),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
-    ])
-    train_dataset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    return train_loader
-
-def get_cifar10_test_loader(batch_size=64):
-    """
-    Returns a DataLoader for the CIFAR-10 test dataset with resizing.
-    """
-    transform = transforms.Compose([
-        transforms.Resize((32, 32)),  # 统一为32x32
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
-    ])
-    test_dataset = datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
-    return test_loader
-
 class CustomImageDataset(Dataset):
     def __init__(self, annotations_file, img_dir, transform=None):
         self.img_labels = pd.read_csv(annotations_file)
