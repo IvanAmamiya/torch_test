@@ -16,7 +16,6 @@ class CIFAR10Loader:
             transforms.RandomHorizontalFlip(),
             transforms.RandomCrop(32, padding=4),
             transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
-            transforms.RandomRotation(15),
             transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
         ])
@@ -43,6 +42,13 @@ class CustomImageDataset(Dataset):
         label = int(self.img_labels.iloc[idx, 1])
         if self.transform:
             image = self.transform(image)
+        # 修正：PIL Image 没有 shape 属性，如需 shape 用 tensor/array
+        # print(f"[CustomImageDataset] idx={idx}, image shape={image.shape}, dtype={image.dtype}, min={image.min().item()}, max={image.max().item()}, label={label}")
+        if idx < 10:
+            if hasattr(image, 'shape'):
+                print(f"[CustomImageDataset] idx={idx}, image shape={image.shape}, dtype={image.dtype}, min={image.min().item()}, max={image.max().item()}, label={label}")
+            else:
+                print(f"[CustomImageDataset] idx={idx}, image size={getattr(image, 'size', None)}, label={label}")
         return image, label
 
 class DatasetLoader:
