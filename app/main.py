@@ -47,7 +47,7 @@ def train_model():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = load_model(pretrained=False).to(device)
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.AdamW(model.parameters(), lr=0.001, weight_decay=1e-4)  # 使用AdamW优化器
+    optimizer = optim.Adam(model.parameters(), lr=0.001)  # 使用Adam优化器
 
     # Train the model
     trainer = Trainer(model, train_loader, test_loader, device, criterion, optimizer)
