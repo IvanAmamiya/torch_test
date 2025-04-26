@@ -59,8 +59,14 @@ class Trainer:
             if acc > best_acc or recall > best_recall:
                 best_acc = max(acc, best_acc)
                 best_recall = max(recall, best_recall)
-                print(f"New best (acc: {best_acc:.4f}, recall: {best_recall:.4f}), saving model...")
-                torch.save(self.model.state_dict(), "model.pth")
+                print(f"New best (acc: {best_acc:.4f}, recall: {best_recall:.4f}), saving model and optimizer...")
+                torch.save({
+                    'epoch': epoch + 1,
+                    'model_state_dict': self.model.state_dict(),
+                    'optimizer_state_dict': self.optimizer.state_dict(),
+                    'best_acc': best_acc,
+                    'best_recall': best_recall
+                }, "model.pth")
 
     def test(self, test_loader=None):
         """
