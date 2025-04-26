@@ -33,6 +33,7 @@ class Trainer:
 
     def train(self, epochs):
         best_acc = 0.0
+        best_recall = 0.0
         for epoch in range(epochs):
             self.model.train()
             running_loss = 0.0
@@ -41,29 +42,24 @@ class Trainer:
                 print("input shape:", images.shape)  # 打印输入图片shape
                 try:
                     images, labels = images.to(self.device), labels.to(self.device)
-                    self._check_input_shape(images)  # 检查输入形状
-
-                    # 前向传播
+                    self._check_input_shape(images)
                     self.optimizer.zero_grad()
                     outputs = self.model(images)
                     loss = self.criterion(outputs, labels)
-
-                    # 反向传播和优化
                     loss.backward()
                     self.optimizer.step()
-
                     running_loss += loss.item()
                 except Exception as e:
                     print(f"训练过程中发生错误: {e}")
-
             avg_loss = running_loss / len(self.train_loader)
             print(f"Epoch {epoch + 1}/{epochs}, Loss: {avg_loss:.4f}")
 
-            # 每个epoch结束后在测试集上评估准确率
-            acc = self.calculate_accuracy()
-            if acc > best_acc:
-                best_acc = acc
-                print(f"New best accuracy: {best_acc:.4f}, saving model...")
+            # 每个epoch结束后在测试集上评估准确率和召回率
+            acc, recall = self.test()
+            if acc > best_acc or recall > best_recall:
+                best_acc = max(acc, best_acc)
+                best_recall = max(recall, best_recall)
+                print(f"New best (acc: {best_acc:.4f}, recall: {best_recall:.4f}), saving model...")
                 torch.save(self.model.state_dict(), "model.pth")
 
     def test(self, test_loader=None):
