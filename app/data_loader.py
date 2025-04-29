@@ -33,7 +33,7 @@ class CIFAR10Loader:
         return MixupDataLoader(self.train_loader), self.test_loader
 
 class MixupDataLoader:
-    def __init__(self, dataloader, alpha=1.0):
+    def __init__(self, dataloader, alpha=0.4):
         self.dataloader = dataloader
         self.alpha = alpha
 
@@ -48,6 +48,69 @@ class MixupDataLoader:
             y_onehot.scatter_(1, y.view(-1, 1), 1)
             mixed_y = lam * y_onehot + (1 - lam) * y_onehot[index, :]
             yield mixed_x, mixed_y
+
+    def __len__(self):
+        return len(self.dataloader)
+
+class CutMixDataLoader:
+    def __init__(self, dataloader, alpha=0.4):
+        self.dataloader = dataloader
+        self.alpha = alpha
+
+    def rand_bbox(self, size, lam):
+        W = size[2]
+        H = size[3]
+        cut_rat = np.sqrt(1. - lam)
+        cut_w = np.int(W * cut_rat)
+        cut_h = np.int(H * cut_rat)
+
+        # uniform
+        cx = np.random.randint(W)
+        cy = np.random.randint(H)
+
+        bbx1 = np.clip(cx - cut_w // 2, 0, W)
+        bby1 = np.clip(cy - cut_h // 2, 0, H)
+        bbx2 = np.clip(cx + cut_w // 2, 0, W)
+        bby2 = np.clip(cy + cut_h // 2, 0, H)
+
+        return bbx1, bby1, bbx2, bby2
+
+    def __iter__(self):
+        for x, y in self.dataloader:
+            lam = np.random.beta(self.alpha, self.alpha)
+            batch_size = x.size(0)
+            index = torch.randperm(batch_size)
+            y_onehot = torch.zeros(batch_size, 10, device=y.device)
+            y_onehot.scatter_(1, y.view(-1, 1), 1)
+            y_shuffled = y_onehot[index, :]
+            bbx1, bby1, bbx2, bby2 = self.rand_bbox(x.size(), lam)
+            x[:, :, bbx1:bbx2, bby1:bby2] = x[index, :, bbx1:bbx2, bby1:bby2]
+            lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (x.size(-1) * x.size(-2)))
+            mixed_y = lam * y_onehot + (1 - lam) * y_shuffled
+            yield x, mixed_y
+
+import random
+class RandomAugmentDataLoader:
+    def __init__(self, dataloader, alpha=0.2):
+        self.dataloader = dataloader
+        self.alpha = alpha
+        self.mixup = MixupDataLoader(dataloader, alpha)
+        self.cutmix = CutMixDataLoader(dataloader, alpha)
+
+    def __iter__(self):
+        mixup_iter = iter(self.mixup)
+        cutmix_iter = iter(self.cutmix)
+        for x, y in self.dataloader:
+            mode = random.choice(['mixup', 'cutmix', 'none'])
+            if mode == 'mixup':
+                yield next(mixup_iter)
+            elif mode == 'cutmix':
+                yield next(cutmix_iter)
+            else:
+                # One-hot编码标签
+                y_onehot = torch.zeros(x.size(0), 10, device=y.device)
+                y_onehot.scatter_(1, y.view(-1, 1), 1)
+                yield x, y_onehot
 
     def __len__(self):
         return len(self.dataloader)

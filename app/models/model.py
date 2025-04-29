@@ -1,46 +1,38 @@
 import torch
 import torch.nn as nn
 
-class SimpleCNN(nn.Module):
+class VGGNet(nn.Module):
     def __init__(self, num_classes=10):
-        super(SimpleCNN, self).__init__()
+        super(VGGNet, self).__init__()
         self.features = nn.Sequential(
             # Block 1
-            nn.Conv2d(3, 96, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(96),
-            nn.ReLU(),
-            nn.Conv2d(96, 96, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(96),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2),
-            nn.Dropout(0.25),
-            nn.LocalResponseNorm(5),  # LRN 层，提升泛化能力
-
+            nn.Conv2d(3, 64, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(64, 64, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Dropout(0.5),
+            nn.LocalResponseNorm(5),
             # Block 2
-            nn.Conv2d(96, 96, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(96),
-            nn.ReLU(),
-            nn.Conv2d(96, 96, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(96),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2),
-            nn.Dropout(0.25),
-
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(128, 128, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Dropout(0.5),
             # Block 3
-            nn.Conv2d(96, 256, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(256),
-            nn.ReLU(),
-            nn.Conv2d(256, 256, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(256),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2),
-            nn.Dropout(0.25),
+            nn.Conv2d(128, 256, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(256, 256, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Dropout(0.5),
         )
         self.classifier = nn.Sequential(
             nn.Flatten(),
             nn.Linear(256 * 4 * 4, 512),
-            nn.ReLU(),
-            nn.Dropout(0.4),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.5),
             nn.Linear(512, num_classes)
         )
 
@@ -50,7 +42,7 @@ class SimpleCNN(nn.Module):
         return x
 
 def load_model(weights=None):
-    model = SimpleCNN()
+    model = VGGNet()
     if weights:
         model.load_state_dict(torch.load(weights))
     return model

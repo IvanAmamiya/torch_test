@@ -1,7 +1,7 @@
 import sys
 import os
 import torch
-from torch import nn, optim
+from torch import nn
 from torch.optim.lr_scheduler import CosineAnnealingLR, ReduceLROnPlateau
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,12 +9,13 @@ from app.routers import predict  # Changed to absolute import
 from .data_loader import CIFAR10Loader
 from .models.model import load_model
 from .trainer import Trainer
+import torch_optimizer as optim
 
 # Add the project root to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Set default batch size
-batch_size = 1024  # 调整batch_size为1024，适合多卡大显存环境
+batch_size = 1024  # 调整batch_size为24，适合小批量实验
 
 app = FastAPI()
 
@@ -61,7 +62,7 @@ def train_model():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = load_model(pretrained=False).to(device)
     criterion = LabelSmoothingCrossEntropyLoss(smoothing=0.1)
-    optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9, weight_decay=5e-4)
+    optimizer = optim.SGDW(model.parameters(), lr=0.01, momentum=0.9, weight_decay=5e-4)
     # CosineAnnealingLR: T_max为总epoch数
     scheduler = CosineAnnealingLR(optimizer, T_max=50)
     # ReduceLROnPlateau: 监控验证集loss，patience=5

@@ -28,6 +28,7 @@ class Trainer:
         self.train_losses = []
         self.val_accuracies = []
         self.val_recalls = []
+        self.epoch_dates = []  # 新增：记录每个epoch的日期
         self.timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S") # Store timestamp
 
     def _check_input_shape(self, images):
@@ -70,6 +71,7 @@ class Trainer:
             self.train_losses.append(avg_loss)
             self.val_accuracies.append(acc)
             self.val_recalls.append(recall)
+            self.epoch_dates.append(datetime.datetime.now().strftime("%Y-%m-%d"))  # 新增：记录日期
 
             if acc > best_acc or recall > best_recall:
                 best_acc = max(acc, best_acc)
@@ -139,29 +141,33 @@ class Trainer:
         绘制训练过程中的损失、准确率和召回率曲线并保存。
         """
         save_path = f"training_metrics_{self.timestamp}.png"
-        epochs_range = range(1, len(self.train_losses) + 1)
+        # 横坐标改为日期
+        x_labels = self.epoch_dates if hasattr(self, 'epoch_dates') and len(self.epoch_dates) == len(self.train_losses) else list(range(1, len(self.train_losses) + 1))
 
         plt.figure(figsize=(12, 4))
 
         plt.subplot(1, 3, 1)
-        plt.plot(epochs_range, self.train_losses, label='Training Loss')
+        plt.plot(x_labels, self.train_losses, label='Training Loss')
         plt.title('Training Loss')
-        plt.xlabel('Epochs')
+        plt.xlabel('Date')
         plt.ylabel('Loss')
+        plt.xticks(rotation=45)
         plt.legend()
 
         plt.subplot(1, 3, 2)
-        plt.plot(epochs_range, self.val_accuracies, label='Validation Accuracy')
+        plt.plot(x_labels, self.val_accuracies, label='Validation Accuracy')
         plt.title('Validation Accuracy')
-        plt.xlabel('Epochs')
+        plt.xlabel('Date')
         plt.ylabel('Accuracy')
+        plt.xticks(rotation=45)
         plt.legend()
 
         plt.subplot(1, 3, 3)
-        plt.plot(epochs_range, self.val_recalls, label='Validation Recall')
+        plt.plot(x_labels, self.val_recalls, label='Validation Recall')
         plt.title('Validation Recall')
-        plt.xlabel('Epochs')
+        plt.xlabel('Date')
         plt.ylabel('Recall')
+        plt.xticks(rotation=45)
         plt.legend()
 
         plt.tight_layout()
