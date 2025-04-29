@@ -8,6 +8,8 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision.datasets import FashionMNIST
 from PIL import Image
 import pandas as pd
+import numpy as np
+import torch
 
 class CIFAR10Loader:
     def __init__(self, batch_size):
@@ -16,8 +18,11 @@ class CIFAR10Loader:
             transforms.RandomHorizontalFlip(),
             transforms.RandomCrop(32, padding=4),
             transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+            # RandAugment(), # 使用 RandAugment 替代 RandomErasing (已移除)
             transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+            # transforms.RandomErasing(p=0.5, scale=(0.02, 0.33), ratio=(0.3, 3.3), value=0), # 去掉随机擦除
+            # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) # 原归一化
+            transforms.Normalize(mean=[0.4914, 0.4822, 0.4465], std=[0.2023, 0.1994, 0.2010]) # 使用 CIFAR-10 常用均值和标准差
         ])
         self.train_dataset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
         self.test_dataset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
@@ -25,7 +30,27 @@ class CIFAR10Loader:
         self.test_loader = DataLoader(self.test_dataset, batch_size=batch_size, shuffle=False)
 
     def get_loaders(self):
-        return self.train_loader, self.test_loader
+        return MixupDataLoader(self.train_loader), self.test_loader
+
+class MixupDataLoader:
+    def __init__(self, dataloader, alpha=1.0):
+        self.dataloader = dataloader
+        self.alpha = alpha
+
+    def __iter__(self):
+        for x, y in self.dataloader:
+            lam = np.random.beta(self.alpha, self.alpha)
+            batch_size = x.size(0)
+            index = torch.randperm(batch_size)
+            mixed_x = lam * x + (1 - lam) * x[index, :]
+            # One-hot编码标签
+            y_onehot = torch.zeros(batch_size, 10, device=y.device)
+            y_onehot.scatter_(1, y.view(-1, 1), 1)
+            mixed_y = lam * y_onehot + (1 - lam) * y_onehot[index, :]
+            yield mixed_x, mixed_y
+
+    def __len__(self):
+        return len(self.dataloader)
 
 class CustomImageDataset(Dataset):
     def __init__(self, annotations_file, img_dir, transform=None):

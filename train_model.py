@@ -23,9 +23,12 @@ def main():
     trainer = Trainer(model, train_loader, test_loader, device, criterion, optimizer)
     trainer.train(epochs=10)
 
-    # Save the trained model
-    torch.save(model.state_dict(), "model.pth")
-    print("Model training completed and saved as model.pth")
+    # Save the trained model (This happens inside trainer.train now when best)
+    # torch.save(model.state_dict(), "model.pth")
+    # print("Model training completed and saved as model.pth")
+
+    # Plot and save training metrics
+    trainer.plot_metrics() # No need to pass filename, it's generated internally
 
 if __name__ == "__main__":
     main()

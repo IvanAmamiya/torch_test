@@ -3,6 +3,9 @@
 # 训练模块 / トレーニングモジュール / Training Module
 import torch
 from sklearn.metrics import recall_score
+import matplotlib.pyplot as plt
+import datetime
+
 class Trainer:
     def __init__(self, model, train_loader, test_loader, device, criterion, optimizer):
         """
@@ -21,6 +24,11 @@ class Trainer:
         self.criterion = criterion
         self.optimizer = optimizer
         self.input_shape = None  # 用于存储模型期望的输入形状
+        # Add lists to store metrics
+        self.train_losses = []
+        self.val_accuracies = []
+        self.val_recalls = []
+        self.timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S") # Store timestamp
 
     def _check_input_shape(self, images):
         """
@@ -34,6 +42,7 @@ class Trainer:
     def train(self, epochs):
         best_acc = 0.0
         best_recall = 0.0
+        model_save_path = f"model_{self.timestamp}.pth"
         for epoch in range(epochs):
             self.model.train()
             running_loss = 0.0
@@ -56,11 +65,17 @@ class Trainer:
 
             # 每个epoch结束后在测试集上评估准确率和召回率
             acc, recall = self.test()
+
+            # Store metrics
+            self.train_losses.append(avg_loss)
+            self.val_accuracies.append(acc)
+            self.val_recalls.append(recall)
+
             if acc > best_acc or recall > best_recall:
                 best_acc = max(acc, best_acc)
                 best_recall = max(recall, best_recall)
-                print(f"New best (acc: {best_acc:.4f}, recall: {best_recall:.4f}), saving model...")
-                torch.save(self.model.state_dict(), "model.pth")
+                print(f"New best (acc: {best_acc:.4f}, recall: {best_recall:.4f}), saving model to {model_save_path}...")
+                torch.save(self.model.state_dict(), model_save_path)
 
     def test(self, test_loader=None):
         """
@@ -118,3 +133,38 @@ class Trainer:
         accuracy = correct / total if total > 0 else 0
         print(f"Test Accuracy: {accuracy:.4f}")
         return accuracy
+
+    def plot_metrics(self):
+        """
+        绘制训练过程中的损失、准确率和召回率曲线并保存。
+        """
+        save_path = f"training_metrics_{self.timestamp}.png"
+        epochs_range = range(1, len(self.train_losses) + 1)
+
+        plt.figure(figsize=(12, 4))
+
+        plt.subplot(1, 3, 1)
+        plt.plot(epochs_range, self.train_losses, label='Training Loss')
+        plt.title('Training Loss')
+        plt.xlabel('Epochs')
+        plt.ylabel('Loss')
+        plt.legend()
+
+        plt.subplot(1, 3, 2)
+        plt.plot(epochs_range, self.val_accuracies, label='Validation Accuracy')
+        plt.title('Validation Accuracy')
+        plt.xlabel('Epochs')
+        plt.ylabel('Accuracy')
+        plt.legend()
+
+        plt.subplot(1, 3, 3)
+        plt.plot(epochs_range, self.val_recalls, label='Validation Recall')
+        plt.title('Validation Recall')
+        plt.xlabel('Epochs')
+        plt.ylabel('Recall')
+        plt.legend()
+
+        plt.tight_layout()
+        plt.savefig(save_path)
+        print(f"Training metrics plot saved to {save_path}")
+        plt.close() # Close the plot to free memory

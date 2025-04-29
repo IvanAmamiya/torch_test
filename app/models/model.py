@@ -14,6 +14,7 @@ class SimpleCNN(nn.Module):
             nn.ReLU(),
             nn.MaxPool2d(2, 2),
             nn.Dropout(0.25),
+            nn.LocalResponseNorm(5),  # LRN 层，提升泛化能力
 
             # Block 2
             nn.Conv2d(64, 128, kernel_size=3, padding=1, bias=False),
