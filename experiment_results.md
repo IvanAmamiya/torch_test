@@ -41,3 +41,5 @@
 ## 新实验结论（2025-04-30）
 - 数据混淆（如Mixup、CutMix等）过多会造成噪声过大，导致loss长期居高不下，难以进一步提升精度。
 - 代码中原本掺杂三种随机数据增强，现已改为仅使用Mixup，系数维持0.4。
+
+# Note: The fully connected layer was fine-tuned, and the accuracy increased to 88%.
