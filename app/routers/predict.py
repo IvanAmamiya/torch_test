@@ -178,7 +178,7 @@ async def train_aug_curve():
     import matplotlib.pyplot as plt
     from app.data_loader import MixupDataLoader, CIFAR10Loader
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    alpha_list = [round(x * 0.1, 1) for x in range(1, 11)]  # 0.1 ~ 1.0，跳过0.0，避免np.random.beta报错
+    alpha_list = [0.0] + [round(x * 0.2, 1) for x in range(1, 6)]  # 0.0(无mixup) + 0.2~1.0，步长0.2
     acc_list = []
     optimizer_fn = lambda params: optim.Adam(params, lr=0.001)
     for alpha in alpha_list:
@@ -215,9 +215,10 @@ async def train_aug_curve_stream():
     import matplotlib.pyplot as plt
     from app.data_loader import MixupDataLoader, CIFAR10Loader
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    alpha_list = [0.0] + [round(x * 0.1, 1) for x in range(1, 11)]  # 0.0(无mixup) + 0.1~1.0
+    alpha_list = [0.0] + [round(x * 0.2, 1) for x in range(1, 6)]  # 0.0(无mixup) + 0.1~1.0
     all_acc_lists = []
-    epochs = 100  # 可根据需要调整
+    all_loss_lists = []
+    epochs = 30  # 可根据需要调整
 
     async def stream():
         for alpha in alpha_list:
@@ -230,6 +231,7 @@ async def train_aug_curve_stream():
             else:
                 loader = MixupDataLoader(train_loader, alpha=alpha)
             acc_list = []
+            loss_list = []
             gen = run_training_with_loader(loader, test_loader, epochs=epochs, device=device, optimizer_fn=optimizer_fn, training_progress=training_progress, stream=True)
             for msg in gen:
                 yield msg
@@ -240,12 +242,23 @@ async def train_aug_curve_stream():
                         acc_list.append(acc)
                     except Exception:
                         acc_list.append(0.0)
+                if "Loss:" in item:
+                    try:
+                        loss = float(item.split("Loss:")[-1])
+                        loss_list.append(loss)
+                    except Exception:
+                        loss_list.append(0.0)
             all_acc_lists.append(acc_list)
+            all_loss_lists.append(loss_list)
             yield f"data: Alpha {alpha} finished.\n\n"
-        # 绘制多条折线图
+        # 绘制多条精度和loss折线图
         plots_dir = "plots"
         if not os.path.exists(plots_dir):
             os.makedirs(plots_dir)
+        import random
+        random_suffix = random.randint(1000, 9999)
+        # 精度曲线
+        import matplotlib.pyplot as plt
         plt.figure(figsize=(10, 6))
         for i, acc_list in enumerate(all_acc_lists):
             plt.plot(range(1, len(acc_list)+1), acc_list, marker='o', label=f'alpha={alpha_list[i]}')
@@ -255,11 +268,22 @@ async def train_aug_curve_stream():
         plt.grid(True)
         plt.legend()
         plt.tight_layout()
-        import random
-        random_suffix = random.randint(1000, 9999)
-        save_path = os.path.join(plots_dir, f"mixup_alpha_curve_{random_suffix}.png")
-        plt.savefig(save_path)
+        acc_save_path = os.path.join(plots_dir, f"mixup_alpha_curve_{random_suffix}.png")
+        plt.savefig(acc_save_path)
         plt.close()
-        yield f"data: All alphas finished. Plot saved to {save_path}\n\n"
+        # Loss曲线
+        plt.figure(figsize=(10, 6))
+        for i, loss_list in enumerate(all_loss_lists):
+            plt.plot(range(1, len(loss_list)+1), loss_list, marker='o', label=f'alpha={alpha_list[i]}')
+        plt.title('Mixup Alpha vs Loss Curve')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.grid(True)
+        plt.legend()
+        plt.tight_layout()
+        loss_save_path = os.path.join(plots_dir, f"mixup_alpha_loss_curve_{random_suffix}.png")
+        plt.savefig(loss_save_path)
+        plt.close()
+        yield f"data: All alphas finished. Accuracy plot saved to {acc_save_path}, Loss plot saved to {loss_save_path}\n\n"
     return StreamingResponse(stream(), media_type="text/event-stream")
 
