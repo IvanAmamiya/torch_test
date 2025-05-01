@@ -39,13 +39,18 @@ class MixupDataLoader:
 
     def __iter__(self):
         for x, y in self.dataloader:
-            lam = np.random.beta(self.alpha, self.alpha)
+            # 如果y已经是one-hot，直接yield
+            if y.ndim == 2 and y.size(1) == 10:
+                yield x, y
+                continue
             batch_size = x.size(0)
+            y = y[:batch_size].view(-1)  # 只取前batch_size个，防止y比batch大
+            assert y.shape[0] == batch_size, f"y shape {y.shape}, batch_size {batch_size}"
+            lam = np.random.beta(self.alpha, self.alpha)
             index = torch.randperm(batch_size)
             mixed_x = lam * x + (1 - lam) * x[index, :]
-            # One-hot编码标签
             y_onehot = torch.zeros(batch_size, 10, device=y.device)
-            y_onehot.scatter_(1, y.view(-1, 1), 1)
+            y_onehot.scatter_(1, y.unsqueeze(1).long(), 1)
             mixed_y = lam * y_onehot + (1 - lam) * y_onehot[index, :]
             yield mixed_x, mixed_y
 

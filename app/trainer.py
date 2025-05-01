@@ -78,6 +78,9 @@ class Trainer:
                 best_recall = max(recall, best_recall)
                 print(f"New best (acc: {best_acc:.4f}, recall: {best_recall:.4f}), saving model to {model_save_path}...")
                 torch.save(self.model.state_dict(), model_save_path)
+        # 训练结束后保存精度折线图
+        from app.routers.predict import save_accuracy_plot
+        save_accuracy_plot(self.val_accuracies, filename_prefix="train_accuracy")
 
     def test(self, test_loader=None):
         """
@@ -140,7 +143,11 @@ class Trainer:
         """
         绘制训练过程中的损失、准确率和召回率曲线并保存。
         """
-        save_path = f"training_metrics_{self.timestamp}.png"
+        import os
+        plots_dir = "plots"
+        if not os.path.exists(plots_dir):
+            os.makedirs(plots_dir)
+        save_path = os.path.join(plots_dir, f"training_metrics_{self.timestamp}.png")
         # 横坐标改为日期
         x_labels = self.epoch_dates if hasattr(self, 'epoch_dates') and len(self.epoch_dates) == len(self.train_losses) else list(range(1, len(self.train_losses) + 1))
 
