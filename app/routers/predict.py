@@ -215,10 +215,10 @@ async def train_aug_curve_stream():
     import matplotlib.pyplot as plt
     from app.data_loader import MixupDataLoader, CIFAR10Loader
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    alpha_list = [0.0] + [round(x * 0.2, 1) for x in range(1, 6)]  # 0.0(无mixup) + 0.1~1.0
+    alpha_list = [0.0] + [round(x * 0.05, 1) for x in range(1, 21)]  # 0.0(无mixup) + 0.1~1.0
     all_acc_lists = []
     all_loss_lists = []
-    epochs = 30  # 可根据需要调整
+    epochs = 25  # 可根据需要调整
 
     async def stream():
         for alpha in alpha_list:
