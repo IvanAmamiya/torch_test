@@ -18,6 +18,16 @@ from ..data_loader import CIFAR10Loader
 
 router = APIRouter()
 
+BATCH_SIZE = 64
+# Adjusted batch size for training
+TEST_BATCH_SIZE = 64
+AUG_BATCH_SIZE = 2048
+
+# 学习率与batch size自适应设置
+BASE_LR = 0.001
+BASE_BATCH_SIZE = 64
+lr = BASE_LR * (BATCH_SIZE / BASE_BATCH_SIZE)
+
 # Load the model (ensure the model is trained and saved beforehand)
 # model = load_model(weights=None)
 
@@ -131,7 +141,7 @@ def run_training_with_loader(train_loader, test_loader, epochs, device, optimize
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
-            if training_progress is not None and ((batch_idx + 1) % 200 == 0 or (batch_idx + 1) == len(train_loader)):
+            if training_progress is not None and ((batch_idx + 1) % 50 == 0 or (batch_idx + 1) == len(train_loader)):
                 batch_progress = f"Epoch {epoch + 1}/{epochs}, Batch {batch_idx + 1}/{len(train_loader)}, Loss: {loss.item():.4f}"
                 training_progress.append(batch_progress)
                 if stream:
@@ -161,9 +171,9 @@ async def train_model():
         training_progress = []  # Reset progress
         try:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            data_loader = CIFAR10Loader(batch_size=64)
+            data_loader = CIFAR10Loader(batch_size=BATCH_SIZE)
             train_loader, test_loader = data_loader.get_loaders()
-            optimizer_fn = lambda params: optim.Adam(params, lr=0.001)
+            optimizer_fn = lambda params: optim.Adam(params, lr=lr)
             gen = run_training_with_loader(train_loader, test_loader, epochs=50, device=device, optimizer_fn=optimizer_fn, training_progress=training_progress, stream=True)
             for msg in gen:
                 yield msg
@@ -180,14 +190,14 @@ async def train_aug_curve():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     alpha_list = [0.0] + [round(x * 0.2, 1) for x in range(1, 6)]  # 0.0(无mixup) + 0.2~1.0，步长0.2
     acc_list = []
-    optimizer_fn = lambda params: optim.Adam(params, lr=0.001)
+    optimizer_fn = lambda params: optim.Adam(params, lr=lr)
     for alpha in alpha_list:
         # 重新初始化模型和数据
         model = load_model().to(device)
-        data_loader = CIFAR10Loader(batch_size=64)
+        data_loader = CIFAR10Loader(batch_size=BATCH_SIZE)
         train_loader, test_loader = data_loader.get_loaders()
         mixup_loader = MixupDataLoader(train_loader, alpha=alpha)
-        acc = run_training_with_loader(mixup_loader, test_loader, epochs=3, device=device, optimizer_fn=optimizer_fn)
+        acc = run_training_with_loader(mixup_loader, test_loa2048der, epochs=3, device=device, optimizer_fn=optimizer_fn)
         if hasattr(acc, '__iter__') and not isinstance(acc, str):
             acc = list(acc)[-1] if acc else 0.0
         acc_list.append(acc)
@@ -218,13 +228,13 @@ async def train_aug_curve_stream():
     alpha_list = [0.0] + [round(x * 0.05, 1) for x in range(1, 21)]  # 0.0(无mixup) + 0.1~1.0
     all_acc_lists = []
     all_loss_lists = []
-    epochs = 25  # 可根据需要调整
+    epochs = 200  # 可根据需要调整
 
     async def stream():
         for alpha in alpha_list:
-            optimizer_fn = lambda params: optim.Adam(params, lr=0.001)
+            optimizer_fn = lambda params: optim.Adam(params, lr=lr)
             training_progress = []
-            data_loader = CIFAR10Loader(batch_size=64)
+            data_loader = CIFAR10Loader(batch_size=BATCH_SIZE)
             train_loader, test_loader = data_loader.get_loaders()
             if alpha == 0.0:
                 loader = train_loader  # 不用Mixup
