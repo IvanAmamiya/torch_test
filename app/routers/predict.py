@@ -15,16 +15,17 @@ from fastapi.responses import StreamingResponse, HTMLResponse
 from typing import Generator
 import asyncio
 from ..data_loader import CIFAR10Loader
+import csv
 
 router = APIRouter()
 
-BATCH_SIZE = 64
+BATCH_SIZE = 256  # Adjusted batch size for training
 # Adjusted batch size for training
 TEST_BATCH_SIZE = 64
 AUG_BATCH_SIZE = 2048
 
 # 学习率与batch size自适应设置
-BASE_LR = 0.001
+BASE_LR = 0.1
 BASE_BATCH_SIZE = 64
 lr = BASE_LR * (BATCH_SIZE / BASE_BATCH_SIZE)
 
@@ -124,7 +125,7 @@ async def get_predict_form():
 def run_training_with_loader(train_loader, test_loader, epochs, device, optimizer_fn, training_progress=None, stream=False):
     model = load_model().to(device)
     criterion = nn.CrossEntropyLoss()
-    optimizer = optimizer_fn(model.parameters())
+    optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=5e-4)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
     trainer = Trainer(model, train_loader, test_loader, device, criterion, optimizer)
     acc_list = []
@@ -197,7 +198,7 @@ async def train_aug_curve():
         data_loader = CIFAR10Loader(batch_size=BATCH_SIZE)
         train_loader, test_loader = data_loader.get_loaders()
         mixup_loader = MixupDataLoader(train_loader, alpha=alpha)
-        acc = run_training_with_loader(mixup_loader, test_loa2048der, epochs=3, device=device, optimizer_fn=optimizer_fn)
+        acc = run_training_with_loader(mixup_loader, test_loader, epochs=3, device=device, optimizer_fn=optimizer_fn)
         if hasattr(acc, '__iter__') and not isinstance(acc, str):
             acc = list(acc)[-1] if acc else 0.0
         acc_list.append(acc)
@@ -220,19 +221,43 @@ async def train_aug_curve():
     plt.close()
     return {"message": "Mixup alpha curve experiment completed.", "plot": save_path, "alphas": alpha_list, "accuracies": acc_list}
 
+def save_experiment_csv(filename, alpha_list, all_acc_lists, all_loss_lists, epochs, param_dict=None):
+    with open(filename, 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        # 写入参数信息
+        if param_dict:
+            for k, v in param_dict.items():
+                writer.writerow([f"#{k}={v}"])
+        # 记录所有增强参数
+        writer.writerow([f"# mixup_alpha={param_dict.get('mixup_alpha', '')}"])
+        writer.writerow([f"# cutmix_alpha={param_dict.get('cutmix_alpha', '')}"])
+        writer.writerow([f"# randaugment_n={param_dict.get('randaugment_n', '')}"])
+        writer.writerow([f"# randaugment_m={param_dict.get('randaugment_m', '')}"])
+        writer.writerow([f"# randomerasing_p={param_dict.get('randomerasing_p', '')}"])
+        # 写入表头
+        header = ['epoch'] + [f'alpha={a}_acc' for a in alpha_list] + [f'alpha={a}_loss' for a in alpha_list]
+        writer.writerow(header)
+        for epoch in range(epochs):
+            row = [epoch+1]
+            for acc_list in all_acc_lists:
+                row.append(acc_list[epoch] if epoch < len(acc_list) else '')
+            for loss_list in all_loss_lists:
+                row.append(loss_list[epoch] if epoch < len(loss_list) else '')
+            writer.writerow(row)
+
 @router.get("/train_aug_curve_stream/")
 async def train_aug_curve_stream():
     import matplotlib.pyplot as plt
     from app.data_loader import MixupDataLoader, CIFAR10Loader
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    alpha_list = [0.0] + [round(x * 0.05, 1) for x in range(1, 21)]  # 0.0(无mixup) + 0.1~1.0
+    alpha_list = [0.0] + [round(x * 0.1, 1) for x in range(1, 11)]  # 0.0(无mixup) + 0.1~1.0
     all_acc_lists = []
     all_loss_lists = []
     epochs = 200  # 可根据需要调整
 
     async def stream():
         for alpha in alpha_list:
-            optimizer_fn = lambda params: optim.Adam(params, lr=lr)
+            optimizer_fn = lambda params: optim.SGD(params, lr=0.1, momentum=0.9, weight_decay=1e-4, nesterov=True)
             training_progress = []
             data_loader = CIFAR10Loader(batch_size=BATCH_SIZE)
             train_loader, test_loader = data_loader.get_loaders()
@@ -294,6 +319,24 @@ async def train_aug_curve_stream():
         loss_save_path = os.path.join(plots_dir, f"mixup_alpha_loss_curve_{random_suffix}.png")
         plt.savefig(loss_save_path)
         plt.close()
-        yield f"data: All alphas finished. Accuracy plot saved to {acc_save_path}, Loss plot saved to {loss_save_path}\n\n"
+        # 保存csv，带参数
+        param_dict = {
+            'date': time.strftime('%Y-%m-%d %H:%M:%S'),
+            'batch_size': BATCH_SIZE,
+            'test_batch_size': TEST_BATCH_SIZE,
+            'aug_batch_size': AUG_BATCH_SIZE,
+            'base_lr': BASE_LR,
+            'actual_lr': lr,
+            'epochs': epochs,
+            'model': 'CIFAR-ResNet18',
+            'optimizer': 'Adam',
+            'scheduler': 'StepLR(step_size=5, gamma=0.1)',
+            'alpha_list': alpha_list,
+            'num_workers': 2,
+            'data_augment': 'RandomCrop, RandomHorizontalFlip, ColorJitter, Normalize',
+        }
+        csv_save_path = os.path.join(plots_dir, f"mixup_alpha_results_{random_suffix}.csv")
+        save_experiment_csv(csv_save_path, alpha_list, all_acc_lists, all_loss_lists, epochs, param_dict)
+        yield f"data: All alphas finished. Accuracy plot saved to {acc_save_path}, Loss plot saved to {loss_save_path}, CSV saved to {csv_save_path}\n\n"
     return StreamingResponse(stream(), media_type="text/event-stream")
 
