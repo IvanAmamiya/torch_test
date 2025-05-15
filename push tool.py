@@ -17,6 +17,15 @@ def git_push():
 
 last_util = get_gpu_util()
 
+def gpu_has_process():
+    output = subprocess.check_output("nvidia-smi", shell=True).decode()
+    return "No running processes found" not in output
+
+if gpu_has_process():
+    print("GPU有任务在运行")
+else:
+    print("GPU空闲")
+
 # 先push一次
 git_push()
 
