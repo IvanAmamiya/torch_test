@@ -37,5 +37,5 @@ while True:
     if last_util > 50 and util < 10:
         print("GPU利用率暴降，自动git push")
         git_push()
-        break
+        # break  # 移除break，持续检测
     last_util = util
