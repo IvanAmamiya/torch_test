@@ -19,7 +19,7 @@ import csv
 
 router = APIRouter()
 
-BATCH_SIZE = 96  # Adjusted batch size for training
+BATCH_SIZE = 48  # Adjusted batch size for training
 # Adjusted batch size for training
 TEST_BATCH_SIZE = 64
 AUG_BATCH_SIZE = 2048
@@ -253,11 +253,11 @@ async def train_aug_curve_stream():
     alpha_list = [0.0] + [round(x * 0.1, 1) for x in range(1, 11)]  # 0.0(无mixup) + 0.1~1.0
     all_acc_lists = []
     all_loss_lists = []
-    epochs = 200  # 可根据需要调整
+    epochs = 30  # 可根据需要调整
 
     async def stream():
         for alpha in alpha_list:
-            optimizer_fn = lambda params: optim.SGD(params, lr=0.05, momentum=0.9, weight_decay=1e-4, nesterov=True)
+            optimizer_fn = lambda params: optim.SGD(params, lr=0.01875, momentum=0.9, weight_decay=1e-4, nesterov=True)
             training_progress = []
             data_loader = CIFAR10Loader(batch_size=BATCH_SIZE)
             train_loader, test_loader = data_loader.get_loaders()
