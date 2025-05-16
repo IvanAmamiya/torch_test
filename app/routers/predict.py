@@ -19,7 +19,7 @@ import csv
 
 router = APIRouter()
 
-BATCH_SIZE = 48  # Adjusted batch size for training
+BATCH_SIZE = 32  # Adjusted batch size for training
 # Adjusted batch size for training
 TEST_BATCH_SIZE = 64
 AUG_BATCH_SIZE = 2048
