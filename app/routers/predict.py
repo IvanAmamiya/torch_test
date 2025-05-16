@@ -263,7 +263,7 @@ async def train_aug_curve_stream():
             # BASE_BATCH_SIZE = 64
             # lr = BASE_LR * (BATCH_SIZE / BASE_BATCH_SIZE)
             # 固定学习率设置，batch_size=32时建议lr=0.0125，batch_size=48时为0.01875
-            lr = 0.0125  # 如需切换batch_size请同步调整此处
+            lr = 0.01875  # 如需切换batch_size请同步调整此处
             optimizer_fn = lambda params: optim.SGD(params, lr=lr, momentum=0.9, weight_decay=1e-4, nesterov=True)
             training_progress = []
             data_loader = CIFAR10Loader(batch_size=BATCH_SIZE)
@@ -313,7 +313,7 @@ async def train_aug_curve_stream():
         acc_save_path = os.path.join(plots_dir, f"mixup_alpha_curve_{random_suffix}.png")
         plt.savefig(acc_save_path)
         plt.close()
-        # Loss曲线
+        # Loss曲线（每个alpha一条线）
         plt.figure(figsize=(10, 6))
         for i, loss_list in enumerate(all_loss_lists):
             plt.plot(range(1, len(loss_list)+1), loss_list, marker='o', label=f'alpha={alpha_list[i]}')
