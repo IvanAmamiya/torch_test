@@ -27,7 +27,8 @@ AUG_BATCH_SIZE = 2048
 # 学习率与batch size自适应设置
 BASE_LR = 0.1
 BASE_BATCH_SIZE = 64
-lr = BASE_LR * (BATCH_SIZE / BASE_BATCH_SIZE)
+# lr = BASE_LR * (BATCH_SIZE / BASE_BATCH_SIZE)
+lr = 0.0125  # 如需切换batch_size请同步调整此处
 
 # Load the model (ensure the model is trained and saved beforehand)
 # model = load_model(weights=None)
@@ -257,7 +258,13 @@ async def train_aug_curve_stream():
 
     async def stream():
         for alpha in alpha_list:
-            optimizer_fn = lambda params: optim.SGD(params, lr=0.01875, momentum=0.9, weight_decay=1e-4, nesterov=True)
+            # 动态按batch size调整学习率
+            # BASE_LR = 0.1
+            # BASE_BATCH_SIZE = 64
+            # lr = BASE_LR * (BATCH_SIZE / BASE_BATCH_SIZE)
+            # 固定学习率设置，batch_size=32时建议lr=0.0125，batch_size=48时为0.01875
+            lr = 0.0125  # 如需切换batch_size请同步调整此处
+            optimizer_fn = lambda params: optim.SGD(params, lr=lr, momentum=0.9, weight_decay=1e-4, nesterov=True)
             training_progress = []
             data_loader = CIFAR10Loader(batch_size=BATCH_SIZE)
             train_loader, test_loader = data_loader.get_loaders()
