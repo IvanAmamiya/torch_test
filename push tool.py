@@ -30,12 +30,8 @@ else:
 git_push()
 
 while True:
-    time.sleep(30)  # 每30秒检查一次
     util = get_gpu_util()
     print(f"GPU util: {util}%")
     # 检查是否“暴降”
-    if last_util > 50 and util < 10:
-        print("GPU利用率暴降，自动git push")
-        git_push()
-        # break  # 移除break，持续检测
-    last_util = util
+    git_push()
+    time.sleep(1000)  # 每30秒检查一次
